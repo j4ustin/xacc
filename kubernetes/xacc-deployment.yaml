@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xacc-deployment
+  labels:
+    app: xacc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: xacc
+  template:
+    metadata:
+      labels:
+        app: xacc
+    spec:
+      containers:
+      - name: xacc
+        image: j4ustin/xacc
+        ports:
+        - containerPort: 80

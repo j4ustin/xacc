@@ -2,10 +2,13 @@ from ubuntu:16.04
 
 run mkdir /projects
 workdir /projects
-# Build XACC and its Dependencies, Scaffold included
-run apt-get -y upgrade && apt-get -y update && apt-get install -y software-properties-common wget && add-apt-repository ppa:ubuntu-toolchain-r/test \
-    && wget http://eclipseice.ornl.gov/downloads/xacc/debs/16.04/xacc_1.0_amd64.deb \
-    && wget https://github.com/ORNL-QCI/ScaffCC/releases/download/v2.0/scaffold_2.0_amd64.deb \
-    && apt-get -y update && apt-get install -y $(dpkg --info xacc_1.0_amd64.deb | grep Depends | sed "s/.*ends:\ //" | sed 's/,//g') \
-    && apt-get -y update && apt-get -y install $(dpkg --info scaffold_2.0_amd64.deb | grep Depends | sed "s/.*ends:\ //" | sed 's/,//g') \
-    && dpkg -i scaffold_2.0_amd64.deb && dpkg -i xacc_1.0_amd64.deb
+# Fetch library deps
+run apt-get -y upgrade && apt-get -y update && apt-get -y install software-properties-common wget && add-apt-repository ppa:ubuntu-toolchain-r/test \
+    && apt-get -y install build-essential openssl libssl-dev git software-properties-common libboost-all-dev libblas-dev liblapack-dev \
+    && add-apt-repository ppa:george-edison55/cmake-3.x && apt-get -y update && apt-get -y install cmake \
+    && apt-get -y upgrade
+# Fetch and build XACC
+run git clone https://github.com/ornl-qci/xacc && cd xacc \
+    && mkdir build && cd build && mkdir install \
+    && cmake .. && make install
+cmd ["/bin/sh"]

@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: xacc
-        image: j4ustin/xacc-ubuntu
+        image: j4ustin/xacc
         ports:
         - containerPort: 80

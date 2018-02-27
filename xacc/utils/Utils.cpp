@@ -98,13 +98,14 @@ void XACCLogger::info(const std::string& msg, MessagePredicate predicate) {
 		}
 	}
 }
-void XACCLogger::debug(const std::string& msg, MessagePredicate predicate) {
+
+void XACCLogger::warning(const std::string& msg, MessagePredicate predicate) {
 	if (useCout) {
 		if (predicate() && globalPredicate()) {
 			if (useColor) {
-				std::cout << "\033[1;33m[XACC Debug] " + msg + "\033[0m \n";
+				std::cout << "\033[1;33m[XACC Warning] " + msg + "\033[0m \n";
 			} else {
-				std::cout << "[XACC Debug] " + msg + "\n";
+				std::cout << "[XACC Warning] " + msg + "\n";
 			}
 		}
 	} else {
@@ -117,16 +118,42 @@ void XACCLogger::debug(const std::string& msg, MessagePredicate predicate) {
 		}
 	}
 }
+
+void XACCLogger::debug(const std::string& msg, MessagePredicate predicate) {
+	if (useCout) {
+		if (predicate() && globalPredicate()) {
+			if (useColor) {
+				std::cout << "\033[1;32m[XACC Debug] " + msg + "\033[0m \n";
+			} else {
+				std::cout << "[XACC Debug] " + msg + "\n";
+			}
+		}
+	} else {
+		if (predicate() && globalPredicate()) {
+			if (useColor) {
+				logger->info("\033[1;32m" + msg + "\033[0m");
+			} else {
+				logger->info(msg);
+			}
+		}
+	}
+}
 void XACCLogger::error(const std::string& msg, MessagePredicate predicate) {
 	if (useCout) {
 		if (predicate() && globalPredicate())
+<<<<<<< HEAD
 			XACCError(msg);
 	} else {
 		if (predicate() && globalPredicate()) {
 			logger->error(msg);
+=======
+			std::cerr << msg << "\n";
+	} else {
+		if (predicate() && globalPredicate()) {
+			logger->error("\033[1;31m[XACC Error] " + msg + "\033[0m");
+>>>>>>> 4319392f98b666a3e2b03abda35e22546daea069
 		}
 	}
-	XACCError(msg);
 }
 
 }

@@ -12,6 +12,8 @@
  *******************************************************************************/
 #include "XACC.hpp"
 #include "InstructionIterator.hpp"
+#include <signal.h>
+#include <cstdlib>
 
 namespace xacc {
 
@@ -28,7 +30,7 @@ char** getArgv() {
 	return argv;
 }
 void Initialize(std::vector<std::string> argv) {
-	XACCInfo("Initializing the XACC Framework");
+	XACCLogger::instance()->info("Initializing the XACC Framework");
 	std::vector<char*> cstrs;
 	argv.insert(argv.begin(),"appExec");
 	for (auto& s : argv) {
@@ -43,6 +45,12 @@ void Initialize() {
 
 bool isInitialized() {
 	return xaccFrameworkInitialized;
+}
+
+void ctrl_c_handler(int signal) {
+	error("Caught CTRL-C, exiting the framework.");
+	Finalize();
+	exit(1);
 }
 
 void Initialize(int arc, char** arv) {
@@ -60,6 +68,8 @@ void Initialize(int arc, char** arv) {
 		} catch (std::exception& e) {
 			XACCLogger::instance()->error("Failure initializing XACC Plugin Registry - " +
 					std::string(e.what()));
+			Finalize();
+			exit(1);
 		}
 
 		// Parse any user-supplied command line options
@@ -78,6 +88,11 @@ void Initialize(int arc, char** arv) {
 				"[xacc::plugins] XACC has " + std::to_string(a) + " Accelerator"
 						+ ((s == 0 || s == 1) ? "" : "s") + " available.");
 
+		struct sigaction sigIntHandler;
+		sigIntHandler.sa_handler = ctrl_c_handler;
+		sigemptyset(&sigIntHandler.sa_mask);
+		sigIntHandler.sa_flags = 0;
+		sigaction(SIGINT, &sigIntHandler, NULL);
 	}
 
 	// We're good if we make it here, so indicate that we've been
@@ -98,12 +113,19 @@ void info(const std::string& msg, MessagePredicate predicate) {
 	XACCLogger::instance()->info(msg, predicate);
 }
 
+void warning(const std::string& msg, MessagePredicate predicate) {
+	XACCLogger::instance()->warning(msg, predicate);
+}
+
 void debug(const std::string& msg, MessagePredicate predicate) {
 	XACCLogger::instance()->debug(msg, predicate);
 }
 
 void error(const std::string& msg, MessagePredicate predicate) {
 	XACCLogger::instance()->error(msg, predicate);
+	XACCLogger::instance()->error("Framework Exiting", predicate);
+	xacc::Finalize();
+	exit(-1);
 }
 
 void addCommandLineOption(const std::string& optionName,
@@ -156,15 +178,16 @@ std::shared_ptr<Accelerator> getAccelerator() {
 		error("Invalid use of XACC API. getAccelerator() with no string argument "
 				"requires that you set --accelerator at the command line.");
 	}
+
 	auto acc = ServiceRegistry::instance()->getService<Accelerator>(getOption("accelerator"));
 	if (acc) {
 		acc->initialize();
-		return acc;
 	} else {
 		error(
 				"Invalid Accelerator. Could not find " + getOption("accelerator")
 						+ " in Accelerator Registry.");
 	}
+	return acc;
 }
 
 std::shared_ptr<Accelerator> getAccelerator(const std::string& name) {
@@ -176,12 +199,12 @@ std::shared_ptr<Accelerator> getAccelerator(const std::string& name) {
 	auto acc = ServiceRegistry::instance()->getService<Accelerator>(name);
 	if (acc) {
 		acc->initialize();
-		return acc;
 	} else {
 		error(
 				"Invalid Accelerator. Could not find " + name
 						+ " in Accelerator Registry.");
 	}
+	return acc;
 }
 
 bool hasAccelerator(const std::string& name) {
@@ -201,13 +224,12 @@ std::shared_ptr<Compiler> getCompiler(const std::string& name) {
 				"xacc::Initialize() before using API.");
 	}
 	auto c = ServiceRegistry::instance()->getService<Compiler>(name);
-	if (c) {
-		return c;
-	} else {
+	if (!c) {
 		error(
 				"Invalid Compiler. Could not find " + name
 						+ " in Service Registry.");
 	}
+	return c;
 }
 
 std::shared_ptr<Compiler> getCompiler() {
@@ -222,13 +244,12 @@ std::shared_ptr<Compiler> getCompiler() {
 				"requires that you set --compiler at the command line.");
 	}
 	auto compiler = ServiceRegistry::instance()->getService<Compiler>(getOption("compiler"));
-	if (compiler) {
-		return compiler;
-	} else {
+	if (!compiler) {
 		error(
 				"Invalid Compiler. Could not find " + (*options)["compiler"]
 						+ " in Compiler Registry.");
 	}
+	return compiler;
 }
 
 bool hasCompiler(const std::string& name) {
@@ -243,14 +264,13 @@ std::shared_ptr<IRTransformation> getIRTransformations(
 				"xacc::Initialize() before using API.");
 	}
 	auto t = ServiceRegistry::instance()->getService<IRTransformation>(name);
-	if (t) {
-		return t;
-	} else {
+	if (!t) {
 		error(
 				"Invalid IRTransformation. Could not find " + name
 						+ " in Service Registry.");
 	}
 
+	return t;
 }
 
 const std::string translate(const std::string& original, const std::string& originalLanguageName,
@@ -299,10 +319,10 @@ void clearOptions() {
  * be called after using the XACC API.
  */
 void Finalize() {
+	XACCLogger::instance()->dumpQueue();
 	info("");
 	info("[xacc::plugins] Cleaning up Plugin Registry.");
 	xacc::ServiceRegistry::instance()->destroy();
-//	XACCLogger::instance()->destroy();
 	xacc::xaccFrameworkInitialized = false;
 	info("[xacc] Finalizing XACC Framework.");
 }

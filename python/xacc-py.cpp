@@ -14,6 +14,21 @@ namespace py = pybind11;
 using namespace xacc;
 using namespace xacc::quantum;
 
+// `boost::variant` as an example -- can be any `std::variant`-like container
+namespace pybind11 { namespace detail {
+    template <typename... Ts>
+    struct type_caster<boost::variant<Ts...>> : variant_caster<boost::variant<Ts...>> {};
+
+    // Specifies the function used to visit the variant -- `apply_visitor` instead of `visit`
+    template <>
+    struct visit_helper<boost::variant> {
+        template <typename... Args>
+        static auto call(Args &&...args) -> decltype(boost::apply_visitor(args...)) {
+            return boost::apply_visitor(args...);
+        }
+    };
+}} // namespace pybind11::detail
+
 std::shared_ptr<GateInstruction> create(const std::string& name, std::vector<int> qbits, std::vector<InstructionParameter> params = std::vector<InstructionParameter>{}) {
 	auto g = GateInstructionRegistry::instance()->create(name, qbits);
 	int idx = 0;
@@ -92,12 +107,15 @@ PYBIND11_MODULE(pyxacc, m) {
     py::class_<xacc::Instruction, std::shared_ptr<xacc::Instruction>> inst(m, "Instruction", "Instruction wraps the XACC C++ Instruction class -"
     		" the base for all XACC intermediate representation instructions. Instructions, for example, can be common gates like Hadamard or CNOT.");
     inst.def("getName", &xacc::Instruction::getName, "Return the name of this Instruction.");
+    inst.def("nParameters", &xacc::Instruction::nParameters, "Return the number of parameters this Instruction has.");
 
     // Expose the Function interface
     py::class_<xacc::Function, xacc::Instruction, std::shared_ptr<xacc::Function>> f(m, "Function", "Functions are composed of Instructions.");
     f.def("addInstruction", &xacc::Function::addInstruction, "Add an Instruction to this Function.");
     f.def("nInstructions", &xacc::Function::nInstructions, "Return the number of Instructions in this Function.");
     f.def("getInstruction", &xacc::Function::getInstruction, "Return the instruction at the provided index.");
+    f.def("insertInstruction", &xacc::Function::insertInstruction, "Insert an Instruction at the given index");
+    f.def("getParameter", (InstructionParameter (xacc::Function::*)(const int)) &xacc::Function::getParameter, "");
 
     // Expose the IR interface
     py::class_<xacc::IR, std::shared_ptr<xacc::IR>> ir(m, "IR", "The XACC Intermediate Representation, "
@@ -150,6 +168,7 @@ PYBIND11_MODULE(pyxacc, m) {
 			//py::overload_cast<const std::string&, const int>(
 					&xacc::Accelerator::createBuffer,
 			"Return a newly created register of qubits.");
+	acc.def("execute", (void (xacc::Accelerator::*)(std::shared_ptr<AcceleratorBuffer>, std::shared_ptr<Function>)) &xacc::Accelerator::execute, "Execute the Function with the given AcceleratorBuffer.");
 
 	// Expose the AcceleratorBuffer
 	py::class_<xacc::AcceleratorBuffer, std::shared_ptr<xacc::AcceleratorBuffer>> accb(m,
@@ -157,8 +176,8 @@ PYBIND11_MODULE(pyxacc, m) {
 	accb.def("printBuffer", (void (xacc::AcceleratorBuffer::*)()) &xacc::AcceleratorBuffer::print, "Print the AcceleratorBuffer to standard out.");
 	accb.def("getExpectationValueZ", &xacc::AcceleratorBuffer::getExpectationValueZ, "Return the expectation value with respect to the Z operator.");
 	accb.def("resetBuffer", &xacc::AcceleratorBuffer::resetBuffer, "Reset this buffer for use in another computation.");
-	accb.def("getMeasurementStrings", &xacc::AcceleratorBuffer::getMeasurementStrings, "");
-	accb.def("computeMeasurementProbability", &xacc::AcceleratorBuffer::computeMeasurementProbability, "");
+	accb.def("getMeasurementStrings", &xacc::AcceleratorBuffer::getMeasurementStrings, "Return observed measurement bit strings");
+	accb.def("computeMeasurementProbability", &xacc::AcceleratorBuffer::computeMeasurementProbability, "Compute the probability of a given bit string");
 
 	// Expose the Compiler
 	py::class_<xacc::Compiler, std::shared_ptr<xacc::Compiler>> compiler(m,
@@ -196,8 +215,8 @@ PYBIND11_MODULE(pyxacc, m) {
 	m.def("setOption", &xacc::setOption, "Set an XACC framework option.");
 	m.def("getOption", &xacc::getOption, "Get an XACC framework option.");
 	m.def("optionExists", &xacc::optionExists, "Set an XACC framework option.");
-	m.def("translate", &xacc::translate, "Translate one language quantum kernel to another");
-	m.def("translateWithVisitor", &xacc::translateWithVisitor, "Translate one language quantum kernel to another");
+//	m.def("translate", &xacc::translate, "Translate one language quantum kernel to another");
+//	m.def("translateWithVisitor", &xacc::translateWithVisitor, "Translate one language quantum kernel to another");
 	m.def("Finalize", &xacc::Finalize, "Finalize the framework");
 
 	py::module gatesub = m.def_submodule("gate", "Gate model quantum computing data structures.");
@@ -213,10 +232,6 @@ PYBIND11_MODULE(pyxacc, m) {
 	gateinst.def("setParameter", &xacc::quantum::GateInstruction::setParameter, "Set the parameter value at the give index");
 	gateinst.def("toString", &xacc::quantum::GateInstruction::toString, "Return the instruction as a string representation.");
 
-//	py::class_<xacc::quantum::GateInstructionRegistry, std::shared_ptr<xacc::quantum::GateInstructionRegistry>> gatereg(gatesub,
-//				"GateInstructionRegistry", "Registry of available quantum gates.");
-//	gatereg.def_static("instance", &xacc::quantum::GateInstructionRegistry::instance, "Singleton instance method.");
-//	gatereg.def("create", &xacc::quantum::GateInstructionRegistry::create, "Create");
 
 	py::class_<xacc::quantum::GateFunction, xacc::Function, std::shared_ptr<xacc::quantum::GateFunction>> gatefunction(gatesub, 
 			"GateFunction",
@@ -233,7 +248,7 @@ PYBIND11_MODULE(pyxacc, m) {
 	gateqir.def(py::init<>(), "The constructor");
 	gateqir.def("addKernel", &xacc::quantum::GateQIR::addKernel, "Add an Kernel to this GateQIR.");
 
-	gatesub.def("create", &create, "", py::arg("name"), py::arg("qbits"),
+	gatesub.def("create", &create, "Convenience function for creating a new GateInstruction.", py::arg("name"), py::arg("qbits"),
 			py::arg("params") = std::vector<InstructionParameter> { });
 
 	m.def("setCredentials", &setCredentials,

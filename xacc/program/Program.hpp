@@ -138,6 +138,10 @@ public:
 		}
 	}
 
+	std::vector<std::shared_ptr<AcceleratorBufferPostprocessor>> getBufferPostprocessors() {
+		return bufferPostprocessors;
+	}
+
 	std::shared_ptr<IR> getIR() {
 		return xaccIR;
 	}
@@ -208,7 +212,7 @@ public:
 	 */
 	template<typename ... RuntimeArgs>
 	auto getKernels(const int beginIdx, const int endIdx) -> KernelList<RuntimeArgs...> {
-		KernelList<RuntimeArgs...> kernels(accelerator);
+		KernelList<RuntimeArgs...> kernels(accelerator, bufferPostprocessors);
 		if (!xaccIR) {
 			build();
 		}

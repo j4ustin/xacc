@@ -1,7 +1,8 @@
 #include "ServiceRegistry.hpp"
+#include <boost/filesystem.hpp>
 
-#include <dirent.h>
 namespace xacc {
+
 void ServiceRegistry::initialize() {
 
 	if (!initialized) {
@@ -55,7 +56,7 @@ void ServiceRegistry::initialize() {
 			}
 
 		} else {
-			XACCInfo(
+			XACCLogger::instance()->enqueueLog(
 					"There are no plugins. Install plugins to begin working with XACC.");
 		}
 

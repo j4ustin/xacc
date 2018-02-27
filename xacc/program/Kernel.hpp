@@ -136,6 +136,10 @@ public:
 	std::shared_ptr<Function> getIRFunction() {
 		return function;
 	}
+
+	const std::string getName() {
+		return function->getName();
+	}
 };
 
 /**
@@ -173,6 +177,10 @@ public:
 	 */
 	std::shared_ptr<Accelerator> getAccelerator() {
 		return accelerator;
+	}
+
+	void setBufferPostprocessors(std::vector<std::shared_ptr<AcceleratorBufferPostprocessor>> pps) {
+		bufferPostprocessors = pps;
 	}
 
 	/**

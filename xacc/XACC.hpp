@@ -100,24 +100,7 @@ void addCommandLineOptions(const std::string& category, const std::map<std::stri
  */
 void addCommandLineOptions(std::shared_ptr<options_description> options);
 
-<<<<<<< HEAD
 void setGlobalLoggerPredicate(MessagePredicate predicate);
-=======
-/**
- * Provide a predicate function that determines
- * whether the XACCLogger should print logs.
- *
- * @param predicate Function with no arguments that returns bool
- */
-void setGlobalLoggerPredicate(MessagePredicate predicate);
-
-/**
- * Print an info log to the XACC Logger.
- *
- * @param msg The log to print
- * @param predicate Function with no arguments that returns bool
- */
->>>>>>> 4319392f98b666a3e2b03abda35e22546daea069
 void info(const std::string& msg, MessagePredicate predicate = std::function<bool(void)>([]() {return true;}));
 
 /**

@@ -141,17 +141,10 @@ void XACCLogger::debug(const std::string& msg, MessagePredicate predicate) {
 void XACCLogger::error(const std::string& msg, MessagePredicate predicate) {
 	if (useCout) {
 		if (predicate() && globalPredicate())
-<<<<<<< HEAD
 			XACCError(msg);
 	} else {
 		if (predicate() && globalPredicate()) {
 			logger->error(msg);
-=======
-			std::cerr << msg << "\n";
-	} else {
-		if (predicate() && globalPredicate()) {
-			logger->error("\033[1;31m[XACC Error] " + msg + "\033[0m");
->>>>>>> 4319392f98b666a3e2b03abda35e22546daea069
 		}
 	}
 }
